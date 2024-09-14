@@ -1,0 +1,123 @@
+use anyhow::{anyhow, Result};
+use dotenv::dotenv;
+use reqwest::Client;
+use serde::{Deserialize, Deserializer};
+use serde_json;
+
+// Struct definitions
+#[derive(Deserialize, Debug)]
+struct DuneAnalyticsResponse {
+    result: DuneResult,
+}
+
+#[derive(Deserialize, Debug)]
+struct DuneResult {
+    rows: Vec<CryptoPriceDataRaw>,
+}
+
+// Struct for raw price data that allows for custom deserialization
+#[derive(Deserialize, Debug)]
+struct CryptoPriceDataRaw {
+    hour: String,
+    #[serde(deserialize_with = "deserialize_price")]
+    hour_average_eth_price: f64,
+}
+
+// Enum to handle both string and float values
+#[derive(Debug, Deserialize)]
+#[serde(untagged)] // Automatically handle deserialization of both string and float
+enum Price {
+    String(String),
+    Float(f64),
+}
+
+// Data Cleansing to remove 'crazy' returns
+// Custom deserialization to handle "Infinity" and other non-numeric values
+fn deserialize_price<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let price = Price::deserialize(deserializer)?; // Use Serde's built-in deserialization
+    match price {
+        Price::String(s) => match s.as_str() {
+            "Infinity" | "-Infinity" | "NaN" => Ok(f64::INFINITY), // Treat as infinity
+            _ => s.parse::<f64>().map_err(serde::de::Error::custom), // Handle numeric strings
+        },
+        Price::Float(f) => Ok(f), // Handle floats directly
+    }
+}
+
+// Function to fetch price data from Dune Analytics
+pub async fn fetch_dune_data(
+    query_id: &str,
+    api_key: &str,
+) -> Result<Vec<(String, f64)>, anyhow::Error> {
+    dotenv().ok(); // Load environment variables
+
+    // Dune Analytics API URL with the provided query ID
+    let url = format!(
+        "https://api.dune.com/api/v1/query/{}/results?limit=1000",
+        query_id
+    );
+
+    // Make the API call
+    let client = Client::new();
+    let raw_response = client
+        .get(&url)
+        .header("X-Dune-API-Key", api_key)
+        .send()
+        .await;
+
+    // Check if the request succeeded
+    match raw_response {
+        Ok(response) => {
+            let response_text = response.text().await?;
+            // Deserialize response into expected struct
+            let response_data: DuneAnalyticsResponse = serde_json::from_str(&response_text)
+                .map_err(|e| anyhow!("Failed to deserialize response: {}", e))?;
+            // println!("Parsed response: {:?}", response_data);
+
+            // Extract prices and filter out non-finite values (Infinity, NaN, etc.)
+            let prices: Vec<f64> = response_data
+                .result
+                .rows
+                .iter()
+                .map(|row| row.hour_average_eth_price)
+                .filter(|&price| price.is_finite()) // Filter out Infinity and NaN values
+                .collect();
+
+            // Calculate the average of finite prices
+            if prices.is_empty() {
+                return Err(anyhow!("No valid prices found"));
+            }
+            let avg: f64 = prices.iter().sum::<f64>() / prices.len() as f64;
+
+            // More Data Cleansing and preparation for vol calcs
+            // Filter prices that are greater than 10 times the average
+            let filtered_prices: Vec<(String, f64)> = response_data
+                .result
+                .rows
+                .into_iter()
+                .filter_map(|row| {
+                    if row.hour_average_eth_price.is_finite()
+                        && row.hour_average_eth_price <= 10.0 * avg
+                    {
+                        Some((row.hour, row.hour_average_eth_price))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            // Debug
+            // println!("Filtered prices: {:?}", filtered_prices);
+
+            Ok(filtered_prices)
+        }
+        Err(e) => {
+            // If the request failed, print the error and return it
+            eprintln!("Request to Dune Analytics failed: {}", e);
+            Err(anyhow!(e))
+        }
+    }
+}
