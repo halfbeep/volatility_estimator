@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::env;
 
 mod calculate_volatility;
+#[path = "./data/on_chain.rs"]
 mod on_chain;
 use crate::calculate_volatility::calculate_volatility;
 #[cfg(test)]
