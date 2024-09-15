@@ -3,6 +3,7 @@ use dotenv::dotenv;
 use reqwest::Client;
 use serde::{Deserialize, Deserializer};
 use serde_json;
+use std::env;
 
 // Struct definitions
 #[derive(Deserialize, Debug)]
@@ -18,9 +19,9 @@ struct DuneResult {
 // Struct for raw price data that allows for custom deserialization
 #[derive(Deserialize, Debug)]
 struct CryptoPriceDataRaw {
-    hour: String,
+    tspan: String,
     #[serde(deserialize_with = "deserialize_price")]
-    hour_average_eth_price: f64,
+    average_eth_price: f64,
 }
 
 // Enum to handle both string and float values
@@ -49,15 +50,32 @@ where
 
 // Function to fetch price data from Dune Analytics
 pub async fn fetch_dune_data(
-    query_id: &str,
-    api_key: &str,
+    timespan: &str,
+    no_of_periods: i64,
 ) -> Result<Vec<(String, f64)>, anyhow::Error> {
     dotenv().ok(); // Load environment variables
 
+    // Load the appropriate query ID based on the timespan
+    let query_id = match timespan {
+        "second" => {
+            env::var("DUNE_QUERY_ID_SEC").expect("DUNE_QUERY_ID_SEC must be set in .env file")
+        }
+        "minute" => {
+            env::var("DUNE_QUERY_ID_MIN").expect("DUNE_QUERY_ID_MIN must be set in .env file")
+        }
+        "hour" => {
+            env::var("DUNE_QUERY_ID_HOUR").expect("DUNE_QUERY_ID_HOUR must be set in .env file")
+        }
+        "day" => env::var("DUNE_QUERY_ID_DAY").expect("DUNE_QUERY_ID_DAY must be set in .env file"),
+        _ => return Err(anyhow!("Unsupported timespan provided for Dune data")), // Return an error for unsupported timespans
+    };
+
+    let api_key = env::var("DUNE_API_KEY").expect("DUNE_API_KEY must be set in .env file");
+
     // Dune Analytics API URL with the provided query ID
     let url = format!(
-        "https://api.dune.com/api/v1/query/{}/results?limit=1000",
-        query_id
+        "https://api.dune.com/api/v1/query/{}/results?limit={}",
+        query_id, no_of_periods
     );
 
     // Make the API call
@@ -68,6 +86,9 @@ pub async fn fetch_dune_data(
         .send()
         .await;
 
+    // Debug
+    // println!("Responses: {:?}", raw_response);
+
     // Check if the request succeeded
     match raw_response {
         Ok(response) => {
@@ -75,14 +96,13 @@ pub async fn fetch_dune_data(
             // Deserialize response into expected struct
             let response_data: DuneAnalyticsResponse = serde_json::from_str(&response_text)
                 .map_err(|e| anyhow!("Failed to deserialize response: {}", e))?;
-            // println!("Parsed response: {:?}", response_data);
 
             // Extract prices and filter out non-finite values (Infinity, NaN, etc.)
             let prices: Vec<f64> = response_data
                 .result
                 .rows
                 .iter()
-                .map(|row| row.hour_average_eth_price)
+                .map(|row| row.average_eth_price)
                 .filter(|&price| price.is_finite()) // Filter out Infinity and NaN values
                 .collect();
 
@@ -99,18 +119,13 @@ pub async fn fetch_dune_data(
                 .rows
                 .into_iter()
                 .filter_map(|row| {
-                    if row.hour_average_eth_price.is_finite()
-                        && row.hour_average_eth_price <= 10.0 * avg
-                    {
-                        Some((row.hour, row.hour_average_eth_price))
+                    if row.average_eth_price.is_finite() && row.average_eth_price <= 10.0 * avg {
+                        Some((row.tspan, row.average_eth_price))
                     } else {
                         None
                     }
                 })
                 .collect();
-
-            // Debug
-            // println!("Filtered prices: {:?}", filtered_prices);
 
             Ok(filtered_prices)
         }
