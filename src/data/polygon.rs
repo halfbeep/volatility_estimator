@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::{Duration, NaiveDateTime, TimeZone, Utc};
 use dotenv::dotenv;
 use reqwest::Client;
@@ -8,6 +8,12 @@ use std::env;
 #[derive(Deserialize, Debug)]
 struct ApiResponse {
     results: Vec<DataPoint>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ErrorResponse {
+    status: String,
+    message: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -30,7 +36,7 @@ pub async fn get_polygon_data(
 
     let client = Client::new();
 
-    // Defaultc multiplier to 1
+    // Default multiplier to 1
     let multiplier = 1;
 
     // Calculate the start and end dates based on timespan and no_of_periods
@@ -40,7 +46,7 @@ pub async fn get_polygon_data(
         "minute" => end_date - Duration::minutes(no_of_periods),
         "hour" => end_date - Duration::hours(no_of_periods),
         "day" => end_date - Duration::days(no_of_periods),
-        _ => return Err(anyhow::anyhow!("Invalid timespan provided")), // Return an error for invalid timespan
+        _ => return Err(anyhow!("Invalid timespan provided")), // Return an error for invalid timespan
     };
 
     // Format the dates as required by the Polygon API (in this case, assuming "YYYY-MM-DD")
@@ -57,26 +63,35 @@ pub async fn get_polygon_data(
     // println!("Url: {}", query_url);
 
     // Make the HTTP request to the Polygon API
-    let response = client
-        .get(&query_url)
-        .send()
-        .await?
-        .json::<ApiResponse>()
-        .await?;
+    let response = client.get(&query_url).send().await?;
 
-    // Debug
-    // println!("Responses: {:?}", response);
+    // Check if the response status is successful (200 OK)
+    if response.status().is_success() {
+        // Parse the successful response as JSON
+        let api_response: ApiResponse = response.json().await?;
 
-    // Parse the data into (NaiveDateTime, f64)
-    let parsed_data: Vec<(NaiveDateTime, f64)> = response
-        .results
-        .iter()
-        .filter_map(|data_point| {
-            // Convert the timestamp (t) from milliseconds to seconds using Utc
-            let timestamp = Utc.timestamp_opt(data_point.t / 1000, 0).single()?;
-            Some((timestamp.naive_utc(), data_point.vw))
-        })
-        .collect();
+        // Debug
+        // println!("Responses: {:?}", api_response);
 
-    Ok(parsed_data)
+        // Parse the data into (NaiveDateTime, f64)
+        let parsed_data: Vec<(NaiveDateTime, f64)> = api_response
+            .results
+            .iter()
+            .filter_map(|data_point| {
+                // Convert the timestamp (t) from milliseconds to seconds using Utc
+                let timestamp = Utc.timestamp_opt(data_point.t / 1000, 0).single()?;
+                Some((timestamp.naive_utc(), data_point.vw))
+            })
+            .collect();
+
+        Ok(parsed_data)
+    } else {
+        // If the response is not successful, attempt to parse the error message
+        let error_response: ErrorResponse = response.json().await?;
+        Err(anyhow!(
+            "API error: {} - {}",
+            error_response.status,
+            error_response.message
+        ))
+    }
 }

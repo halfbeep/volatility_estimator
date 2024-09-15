@@ -41,6 +41,14 @@ async fn main() -> Result<()> {
         .unwrap_or("100".to_string()) // Default to 100 periods if not set
         .parse()
         .expect("NO_OF_PERIODS must be a valid integer");
+
+    // Check that NO_OF_PERIODS is within the required range
+    if no_of_periods == 0 || no_of_periods >= 741 {
+        return Err(anyhow::anyhow!(
+            "NO_OF_PERIODS must be greater than 0 and less than 741"
+        ));
+    }
+
     let time_period = env::var("TIME_PERIOD").unwrap_or("hour".to_string());
 
     // Determine the duration based on TIME_PERIOD
@@ -74,6 +82,7 @@ async fn main() -> Result<()> {
     }
 
     // Get and Insert Polygon data
+    println!("Starting polygon.. ");
     let polygon_data = get_polygon_data(&time_period, no_of_periods.try_into().unwrap()).await?;
     for (timestamp, vw) in polygon_data {
         // Round the timestamp according to the time_period
@@ -82,10 +91,11 @@ async fn main() -> Result<()> {
         results_map
             .entry(rounded_timestamp)
             .and_modify(|e| e.0 = Some(vw))
-            .or_insert((Some(vw), None, None, None, None)); // Set VW, others remain None
+            .or_insert((Some(vw), None, None, None, None)); // Set Polygon, others remain None
     }
 
     // Get and Insert Dune data
+    println!("Starting dune.. ");
     let on_chain_prices = fetch_dune_data(&time_period, no_of_periods.try_into().unwrap()).await?;
     for (day_str, price) in on_chain_prices {
         let day_str = day_str.trim();
@@ -101,16 +111,18 @@ async fn main() -> Result<()> {
     }
 
     // Get and Insert BitFinex data
+    println!("Starting bitfinex.. ");
     let coin_api_data = get_coin_api_data(&time_period).await?;
     for (timestamp, average_price) in coin_api_data {
         let rounded_timestamp = round_to_period(timestamp, &time_period);
         results_map
             .entry(rounded_timestamp)
             .and_modify(|e| e.3 = Some(average_price))
-            .or_insert((None, None, None, Some(average_price), None)); // Set CoinAPI price, others remain None
+            .or_insert((None, None, None, Some(average_price), None)); // Set BitFinex price, others remain None
     }
 
     // Get and Insert Kraken data
+    println!("Starting kraken.. ");
     let kraken_data = get_kraken_data(&time_period).await?;
     for (timestamp, average_price) in kraken_data {
         let rounded_timestamp = round_to_period(timestamp, &time_period);

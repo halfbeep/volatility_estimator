@@ -135,7 +135,7 @@ pub fn calculate_volatility(
     let mean = vol_values.iter().sum::<f64>() / n as f64;
 
     // Calculate variance
-    let variance = vol_values.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / n as f64;
+    let variance = vol_values.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
 
     // Calculate standard deviation
     let standard_deviation = variance.sqrt();
