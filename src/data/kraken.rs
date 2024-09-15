@@ -23,9 +23,7 @@ struct KrakenResult {
 pub async fn get_kraken_data(
     time_period: &str,
 ) -> Result<Vec<(NaiveDateTime, f64)>, anyhow::Error> {
-    let client = Client::new();
-
-    let kraken_symbol = "ETHPYUSD";
+    let asset_id = "ETHPYUSD";
 
     // Convert time_period to the correct interval in minutes for Kraken API
     let interval_minutes = match time_period {
@@ -42,8 +40,10 @@ pub async fn get_kraken_data(
     // Define the API endpoint
     let url = format!(
         "https://api.kraken.com/0/public/OHLC?pair={}&interval={}",
-        kraken_symbol, interval_minutes
+        asset_id, interval_minutes
     );
+
+    let client = Client::new();
 
     // Make the request to the Kraken API
     let response = client
@@ -60,7 +60,7 @@ pub async fn get_kraken_data(
     let ohlc_data = response
         .result
         .ohlc
-        .get(kraken_symbol)
+        .get(asset_id)
         .ok_or_else(|| anyhow::anyhow!("No OHLC data found for the specified pair"))?;
 
     // Parse the OHLC data into (NaiveDateTime, f64) where f64 is the average price

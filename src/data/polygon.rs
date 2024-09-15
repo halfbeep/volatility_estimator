@@ -21,14 +21,16 @@ pub async fn get_polygon_data(
     no_of_periods: i64,
 ) -> Result<Vec<(NaiveDateTime, f64)>, anyhow::Error> {
     dotenv().ok(); // Load environment variables
+    let asset_id = "X:ETHUSD";
 
     // Load the API key and URL from the environment
     let api_key = env::var("POLYGON_API_KEY").expect("API_KEY not found in .env");
-    let api_url = env::var("POLYGON_API_URL").expect("API_URL not found in .env");
+
+    let api_url = format!("https://api.polygon.io/v2/aggs/ticker/{}/range", asset_id);
 
     let client = Client::new();
 
-    // Set multiplier to 1
+    // Defaultc multiplier to 1
     let multiplier = 1;
 
     // Calculate the start and end dates based on timespan and no_of_periods

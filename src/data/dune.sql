@@ -1,3 +1,10 @@
+-- in a dune account, create 4 individual queries like the example in src/data/dune.sql
+-- on saving these queries you will have 4 unique query_id's for the .env file :-
+-- DUNE_QUERY_ID_SECOND=2122120
+-- DUNE_QUERY_ID_MIN=7654321
+-- DUNE_QUERY_ID_HOUR=7117110
+-- DUNE_QUERY_ID_DAY=1234567
+
 WITH eth_prices AS (
   SELECT
     block_time AS timestamp,
@@ -12,8 +19,8 @@ ORDER BY block_time
 LIMIT 100000
 )
 SELECT
-  date_trunc('minute', timestamp) AS minute,
-  avg(eth_price_in_usd) AS min_average_eth_price
+  date_trunc('minute', timestamp) AS tspan,  -- ! CHANGE to second, hour, day !
+  avg(eth_price_in_usd) AS average_eth_price
 FROM
   eth_prices
 GROUP BY
