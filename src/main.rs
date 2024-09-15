@@ -128,19 +128,19 @@ async fn main() -> Result<()> {
             .or_insert((None, None, Some(average_price), None, None)); // Set Kraken price, others remain None
     }
 
+    /*
     // Convert to a sorted Vec to process and interpolate correctly
     let mut sorted_results: Vec<_> = results_map.into_iter().collect();
     sorted_results.sort_by_key(|&(timestamp, _)| timestamp);
 
     // Convert sorted_results back to a HashMap for further processing
     let mut sorted_results_map: HashMap<NaiveDateTime, _> = sorted_results.into_iter().collect();
+    */
 
     // Calculate and print volatility
-    if let Some(volatility) =
-        calculate_volatility(&mut sorted_results_map, no_of_periods, &time_period)
-    {
+    if let Some(volatility) = calculate_volatility(&mut results_map, no_of_periods, &time_period) {
         // Reorder the map to print it in order
-        let mut sorted_results: Vec<_> = sorted_results_map.iter().collect();
+        let mut sorted_results: Vec<_> = results_map.iter().collect();
         sorted_results.sort_by_key(|&(timestamp, _)| timestamp);
 
         // Print the ordered map with populated and interpolated vol values

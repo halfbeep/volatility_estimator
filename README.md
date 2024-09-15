@@ -1,22 +1,26 @@
 ## Volatility Estimator
 
-**(uses on-chain & off-chain prices)**
+**Uses on-chain & off-chain prices on a continuous basis (24/7) from kraken, dune, bitFinex and polygon. Highest of average or volume weighted prices used with linear interpolation and projection**
 
 $${V}_{x} = \sqrt{\frac{1}{N-1} \sum_{i=1}^N (x_i - \overline{x})^2}$$
+
+.
 
     git clone [this repo]
     cd volatility_estimator/
     cargo test
 
-If the tests are all ok then populate the API keys and Dune query_id's to populate the .env file (pre populated to 100 periods, period 1 hour)
+If the tests pass ok then populate the .env file with your API keys and Dune query_id's
+
+COINAPI_API_KEY=[your api key]
+POLYGON_API_KEY=[your api key]
+DUNE_API_KEY=[your api key]
+**Dune Queries:** in a dune account, create 4 individual queries like the example here .in src/data/dune.sql. On saving the queries you will create 4 unique query_id's for this .env, like:-
+
+DUNE_QUERY_ID_SECOND=[your query id]
+DUNE_QUERY_ID_MIN=[your query id]
+DUNE_QUERY_ID_HOUR=[your query id]
+DUNE_QUERY_ID_DAY=[your query id]
+(click on 'API' in bottom right of dune SQL window to reveal API query_id in URL)
 
     cargo run
-
-Dune Queries: in a dune account, create 4 individual queries like the example here .in src/data/dune.sql. On saving the queries you will have 4 unique query_id's for this .env
-
--- DUNE_QUERY_ID_SECOND=2122120
--- DUNE_QUERY_ID_MIN=7654321
--- DUNE_QUERY_ID_HOUR=7117110
--- DUNE_QUERY_ID_DAY=1234567
-
-(click on 'API' in bottom right of SQL window to reveal API query id)
