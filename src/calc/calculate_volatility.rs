@@ -125,7 +125,6 @@ pub fn calculate_volatility(
         .values()
         .filter_map(|(_, _, _, _, vol)| *vol)
         .collect();
-
     let n = vol_values.len();
     if n == 0 {
         return None;

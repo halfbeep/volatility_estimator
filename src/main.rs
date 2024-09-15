@@ -81,8 +81,7 @@ async fn main() -> Result<()> {
         current_timestamp = current_timestamp - time_duration;
     }
 
-    // Get and Insert Polygon data
-    println!("Starting polygon.. ");
+    println!("Get and Insert Polygon data.. ");
     let polygon_data = get_polygon_data(&time_period, no_of_periods.try_into().unwrap()).await?;
     for (timestamp, vw) in polygon_data {
         // Round the timestamp according to the time_period
@@ -94,8 +93,7 @@ async fn main() -> Result<()> {
             .or_insert((Some(vw), None, None, None, None)); // Set Polygon, others remain None
     }
 
-    // Get and Insert Dune data
-    println!("Starting dune.. ");
+    println!("Get and Insert Dune data..");
     let on_chain_prices = fetch_dune_data(&time_period, no_of_periods.try_into().unwrap()).await?;
     for (day_str, price) in on_chain_prices {
         let day_str = day_str.trim();
@@ -110,8 +108,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Get and Insert BitFinex data
-    println!("Starting bitfinex.. ");
+    println!("Get and Insert BitFinex data..");
     let coin_api_data = get_coin_api_data(&time_period).await?;
     for (timestamp, average_price) in coin_api_data {
         let rounded_timestamp = round_to_period(timestamp, &time_period);
@@ -121,8 +118,7 @@ async fn main() -> Result<()> {
             .or_insert((None, None, None, Some(average_price), None)); // Set BitFinex price, others remain None
     }
 
-    // Get and Insert Kraken data
-    println!("Starting kraken.. ");
+    println!("Get and Insert Kraken data.. ");
     let kraken_data = get_kraken_data(&time_period).await?;
     for (timestamp, average_price) in kraken_data {
         let rounded_timestamp = round_to_period(timestamp, &time_period);
