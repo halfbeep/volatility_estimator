@@ -29,10 +29,10 @@ pub async fn get_coin_api_data(timespan: &str) -> Result<Vec<(NaiveDateTime, f64
         _ => return Err(anyhow::anyhow!("Unsupported timespan provided")), // Return an error for unsupported timespans
     };
 
-    // Load the CoinAPI key from the environment
+    // Load the CoinAPI key from .env
     let api_key = env::var("COINAPI_API_KEY").expect("COINAPI_API_KEY must be set in .env file");
 
-    // Construct the request URL
+    // Construct the actual URL
     let url = format!(
         "https://rest.coinapi.io/v1/ohlcv/{}/history?period_id={}",
         asset_id, period
@@ -41,7 +41,7 @@ pub async fn get_coin_api_data(timespan: &str) -> Result<Vec<(NaiveDateTime, f64
     // Debug
     // println!("Url: {}", url);
 
-    // Make the request to CoinAPI
+    // Make the request to CoinAPI for bitFinex
     let client = reqwest::Client::new();
     let response = client
         .get(&url)

@@ -45,15 +45,19 @@ pub fn calculate_volatility(
         // Collect non-None values into a vector
         let mut values = vec![];
         if let Some(vw_value) = *vw {
+            // Volume weighted
             values.push(vw_value);
         }
         if let Some(ap_value) = *ap {
+            // Average in timespan
             values.push(ap_value);
         }
         if let Some(kr_value) = *kr {
+            // Kraken price is avg of ohlc
             values.push(kr_value);
         }
         if let Some(ca_value) = *ca {
+            // CoinAPI price is avg of ohlc
             values.push(ca_value);
         }
 
@@ -74,8 +78,42 @@ pub fn calculate_volatility(
     // Ensure the values are sorted by timestamps for interpolation
     vol_values.sort_by_key(|&(timestamp, _)| timestamp);
 
-    // Perform linear interpolation on None segments (represented by NaN)
+    // Perform linear interpolation on None segments (now represented by NaN)
     let mut i = 0;
+
+    // Backward Interpolation
+    // Handle leading NaN values by finding the first non-NaN value
+    if !vol_values.is_empty() && vol_values[0].1.is_nan() {
+        // Find the first non-NaN value
+        let mut first_valid_value = None;
+        for &(_, value) in &vol_values {
+            if !value.is_nan() {
+                first_valid_value = Some(value);
+                break;
+            }
+        }
+
+        // If a valid value is found, set it for all leading NaNs
+        if let Some(valid_value) = first_valid_value {
+            for &mut (_, ref mut value) in vol_values.iter_mut() {
+                if value.is_nan() {
+                    *value = valid_value;
+                } else {
+                    break;
+                }
+            }
+        } else {
+            // If all values are NaN, use 0.0 as a fallback
+            for &mut (_, ref mut value) in vol_values.iter_mut() {
+                if value.is_nan() {
+                    *value = 0.0;
+                }
+            }
+        }
+    }
+
+    // Interpolation between values
+    // Now handle the remaining NaN values
     while i < vol_values.len() {
         // Find the start of a None (NaN) segment
         if vol_values[i].1.is_nan() {
@@ -96,8 +134,8 @@ pub fn calculate_volatility(
             let end_value = if i < vol_values.len() {
                 vol_values[i].1
             } else {
-                // If at the end of the dataset, continue linear 'progression'
-                // from the last known value
+                // Interpolation Projection
+                // If at the end of the dataset, continue linear progression from the last known value
                 start_value
             };
 

@@ -29,7 +29,7 @@ pub async fn get_polygon_data(
     dotenv().ok(); // Load environment variables
     let asset_id = "X:ETHUSD";
 
-    // Load the API key and URL from the environment
+    // Set the API key and URL
     let api_key = env::var("POLYGON_API_KEY").expect("API_KEY not found in .env");
 
     let api_url = format!("https://api.polygon.io/v2/aggs/ticker/{}/range", asset_id);
@@ -39,7 +39,7 @@ pub async fn get_polygon_data(
     // Default multiplier to 1
     let multiplier = 1;
 
-    // Calculate the start and end dates based on timespan and no_of_periods
+    // Calculate the start and end dates for API based on timespan and no_of_periods
     let end_date = Utc::now();
     let start_date = match timespan {
         "second" => end_date - Duration::seconds(no_of_periods),
@@ -49,11 +49,11 @@ pub async fn get_polygon_data(
         _ => return Err(anyhow!("Invalid timespan provided")), // Return an error for invalid timespan
     };
 
-    // Format the dates as required by the Polygon API (in this case, assuming "YYYY-MM-DD")
+    // Format the dates as required by API (in this case, assuming "YYYY-MM-DD")
     let start_date_str = start_date.format("%Y-%m-%d").to_string();
     let end_date_str = end_date.format("%Y-%m-%d").to_string();
 
-    // Build the query URL
+    // Build the final query URL
     let query_url = format!(
         "{}/{}/{}/{}/{}?apiKey={}",
         api_url, multiplier, timespan, start_date_str, end_date_str, api_key
@@ -62,7 +62,7 @@ pub async fn get_polygon_data(
     // Debug
     // println!("Url: {}", query_url);
 
-    // Make the HTTP request to the Polygon API
+    // Make the HTTP request to Polygon API
     let response = client.get(&query_url).send().await?;
 
     // Check if the response status is successful (200 OK)

@@ -51,6 +51,12 @@ async fn main() -> Result<()> {
 
     // Default to hour if period is absent
     let time_period = env::var("TIME_PERIOD").unwrap_or("hour".to_string());
+    // Validate that TIME_PERIOD is one of "second", "minute", "hour", or "day"
+    if !["second", "minute", "hour", "day"].contains(&time_period.as_str()) {
+        return Err(anyhow::anyhow!(
+            "TIME_PERIOD must be one of: 'second', 'minute', 'hour', or 'day'."
+        ));
+    }
 
     // Determine the duration based on TIME_PERIOD
     let time_duration = match time_period.as_str() {
@@ -77,8 +83,8 @@ async fn main() -> Result<()> {
         ),
     > = HashMap::new();
 
-    // Fill in initial timestamps and create
-    // the empty placeholders for the volatility calculation
+    // Fill in initial timestamps, creating
+    // the placeholders for the volatility calculation
     for _ in 0..no_of_periods {
         results_map.insert(current_timestamp, (None, None, None, None, None));
         current_timestamp = current_timestamp - time_duration;
@@ -174,7 +180,7 @@ async fn main() -> Result<()> {
         }
 
         println!(
-            "Combined Vol of {} {} bars, avg & volume weighted = {:.6}",
+            "Estimated Volatility over {}  {}  bars, avg & volume weighted = {:.6}",
             no_of_periods, time_period, volatility
         );
     } else {
