@@ -36,19 +36,20 @@ mod calculate_volatility_test;
 async fn main() -> Result<()> {
     dotenv().ok();
 
-    // Load the number of periods and the time period from the .env file
+    // Load the number of periods the .env file
     let no_of_periods: usize = env::var("NO_OF_PERIODS")
         .unwrap_or("100".to_string()) // Default to 100 periods if not set
         .parse()
         .expect("NO_OF_PERIODS must be a valid integer");
 
-    // Check that NO_OF_PERIODS is within the required range
+    // Check that NO_OF_PERIODS is in reasonable range
     if no_of_periods == 0 || no_of_periods >= 741 {
         return Err(anyhow::anyhow!(
             "NO_OF_PERIODS must be greater than 0 and less than 741"
         ));
     }
 
+    // Default to hour if period is absent
     let time_period = env::var("TIME_PERIOD").unwrap_or("hour".to_string());
 
     // Determine the duration based on TIME_PERIOD
@@ -64,6 +65,7 @@ async fn main() -> Result<()> {
     let mut current_timestamp = Utc::now().naive_utc();
 
     // Initialize a results_map with a 5 price vector
+    // (includes price 'VOL' used for calculation)
     let mut results_map: HashMap<
         NaiveDateTime,
         (

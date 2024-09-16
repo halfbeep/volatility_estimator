@@ -16,7 +16,7 @@ pub fn calculate_volatility(
             Option<f64>,
         ),
     >,
-    no_of_periods: usize, // no_of_periods is of type usize
+    no_of_periods: usize,
     timespan: &str,
 ) -> Option<f64> {
     // Round the timestamps to the specified `timespan` using round_to_period first
@@ -29,11 +29,11 @@ pub fn calculate_volatility(
     // Replace the old results_map with the rounded_map
     *results_map = rounded_map;
 
-    // Sort timestamps and keep only the most recent `no_of_periods` rows after rounding
+    // Sort on timestamps
     let mut timestamps: Vec<NaiveDateTime> = results_map.keys().cloned().collect();
     timestamps.sort(); // Sort by timestamp (ascending)
 
-    // Keep only the most recent `no_of_periods` timestamps
+    // Keep most recent `no_of_periods` timestamps
     if timestamps.len() > no_of_periods {
         for old_timestamp in &timestamps[..timestamps.len() - no_of_periods] {
             results_map.remove(old_timestamp); // Remove older timestamps
@@ -96,7 +96,8 @@ pub fn calculate_volatility(
             let end_value = if i < vol_values.len() {
                 vol_values[i].1
             } else {
-                // If at the end of the dataset, continue linear progression from the last known value
+                // If at the end of the dataset, continue linear 'progression'
+                // from the last known value
                 start_value
             };
 
@@ -120,7 +121,8 @@ pub fn calculate_volatility(
         }
     }
 
-    // Extract all `vol` values into a vector, filtering out `None` values
+    // Extract all `vol` values into a vector, again filtering out `None` values !!
+    // TODO: this filter is belt & braces and should probably be removed
     let vol_values: Vec<f64> = results_map
         .values()
         .filter_map(|(_, _, _, _, vol)| *vol)
