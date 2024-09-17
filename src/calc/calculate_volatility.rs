@@ -1,46 +1,37 @@
 use chrono::NaiveDateTime;
 use std::collections::HashMap;
-
-#[path = "../util/rounding.rs"]
-mod rounding;
-use rounding::round_to_period;
+use std::sync::{Arc, RwLock};
 
 pub fn calculate_volatility(
-    results_map: &mut HashMap<
-        NaiveDateTime,
-        (
-            Option<f64>,
-            Option<f64>,
-            Option<f64>,
-            Option<f64>,
-            Option<f64>,
-        ),
+    results_map: &Arc<
+        RwLock<
+            HashMap<
+                NaiveDateTime,
+                (
+                    Option<f64>,
+                    Option<f64>,
+                    Option<f64>,
+                    Option<f64>,
+                    Option<f64>,
+                ),
+            >,
+        >,
     >,
     no_of_periods: usize,
-    timespan: &str,
 ) -> Option<f64> {
-    // Round the timestamps to the specified `timespan` using round_to_period first
-    let mut rounded_map: HashMap<NaiveDateTime, _> = HashMap::new();
-    for (timestamp, value) in results_map.drain() {
-        let rounded_timestamp = round_to_period(timestamp, timespan);
-        rounded_map.insert(rounded_timestamp, value);
-    }
+    // Lock the map here !
+    let mut results_map = results_map.write().unwrap();
 
-    // Replace the old results_map with the rounded_map
-    *results_map = rounded_map;
-
-    // Sort on timestamps
     let mut timestamps: Vec<NaiveDateTime> = results_map.keys().cloned().collect();
     timestamps.sort(); // Sort by timestamp (ascending)
-
-    // Keep most recent `no_of_periods` timestamps
+                       // Keep most recent `no_of_periods` timestamps
     if timestamps.len() > no_of_periods {
         for old_timestamp in &timestamps[..timestamps.len() - no_of_periods] {
             results_map.remove(old_timestamp); // Remove older timestamps
         }
     }
 
-    // Calculate `vol` for each entry as the highest value among VW, AP, KR, and CA
+    // Calculate `vol price` for each entry as the highest value among VW, AP, KR, and CA
     for (_timestamp, (vw, ap, kr, ca, vol)) in results_map.iter_mut() {
         // Collect non-None values into a vector
         let mut values = vec![];
@@ -69,13 +60,14 @@ pub fn calculate_volatility(
         };
     }
 
-    // Update the `vol` values back to the `results_map`, converting None to NaN for proper interpolation
+    // Update the `useable vol price (volp)` values back to the `results_map`,
+    // converting None to NaN for proper interpolation
     let mut vol_values: Vec<(NaiveDateTime, f64)> = results_map
         .iter()
         .map(|(timestamp, (_, _, _, _, vol))| (*timestamp, vol.unwrap_or(f64::NAN)))
         .collect();
 
-    // Ensure the values are sorted by timestamps for interpolation
+    // Ensure the values are sorted by timestamp for interpolation
     vol_values.sort_by_key(|&(timestamp, _)| timestamp);
 
     // Perform linear interpolation on None segments (now represented by NaN)
@@ -134,7 +126,7 @@ pub fn calculate_volatility(
             let end_value = if i < vol_values.len() {
                 vol_values[i].1
             } else {
-                // Interpolation Projection
+                // Interpolation
                 // If at the end of the dataset, continue linear progression from the last known value
                 start_value
             };
@@ -152,14 +144,14 @@ pub fn calculate_volatility(
         }
     }
 
-    // Update the `vol` values back to the `results_map`
+    // Update the `volp` values back to the `results_map`
     for (timestamp, vol_value) in &vol_values {
         if let Some(entry) = results_map.get_mut(timestamp) {
             entry.4 = Some(*vol_value); // Update the fifth element (vol)
         }
     }
 
-    // Extract all `vol` values into a vector, again filtering out `None` values !!
+    // Extract all `volp` values into a vector, again filtering out `None` values !!
     // TODO: this filter is belt & braces and should probably be removed
     let vol_values: Vec<f64> = results_map
         .values()

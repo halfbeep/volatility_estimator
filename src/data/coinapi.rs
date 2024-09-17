@@ -1,10 +1,12 @@
 use anyhow::Result;
 use chrono::NaiveDateTime;
+use log::{debug, error};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use std::env;
+use tokio::time::{timeout, Duration};
 
-// Define a struct to represent each record in the CoinAPI response
+// Define a struct for CoinAPI response
 #[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct CoinApiRecord {
@@ -17,16 +19,21 @@ struct CoinApiRecord {
     trades_count: u64,
 }
 
-pub async fn get_coin_api_data(timespan: &str) -> Result<Vec<(NaiveDateTime, f64)>, anyhow::Error> {
+pub async fn get_coin_api_data(
+    time_period: &str,
+) -> Result<Vec<(NaiveDateTime, f64)>, anyhow::Error> {
     let asset_id = "BITFINEX_SPOT_ETH_USD";
 
     // Convert timespan to period
-    let period = match timespan {
+    let period = match time_period {
         "second" => "1SEC",
         "minute" => "1MIN",
         "hour" => "1HRS",
         "day" => "1DAY",
-        _ => return Err(anyhow::anyhow!("Unsupported timespan provided")), // Return an error for unsupported timespans
+        _ => {
+            error!("Unsupported timespan provided");
+            return Err(anyhow::anyhow!("Unsupported timespan provided"));
+        }
     };
 
     // Load the CoinAPI key from .env
@@ -38,55 +45,85 @@ pub async fn get_coin_api_data(timespan: &str) -> Result<Vec<(NaiveDateTime, f64
         asset_id, period
     );
 
-    // Debug
-    // println!("Url: {}", url);
+    debug!("Constructed CoinAPI URL: {}", url);
 
-    // Make the request to CoinAPI for bitFinex
+    // Make the request to CoinAPI for BitFinex
     let client = reqwest::Client::new();
-    let response = client
-        .get(&url)
-        .header("X-CoinAPI-Key", api_key)
-        .header("ACCEPT", "application/json")
-        .send()
-        .await?;
 
-    // Debug
-    // println!("Responses: {:?}", response);
+    let timeout_duration = Duration::from_secs(10);
+    debug!("Sending request to CoinAPI...");
 
-    // Check if the response is successful
-    if response.status() != StatusCode::OK {
-        let status = response.status();
-        let error_text = response.text().await?;
-        println!(
-            "Request failed with status: {} and body: {}",
-            status, error_text
-        );
-        return Err(anyhow::anyhow!(
-            "CoinAPI request failed with status {}",
-            status
-        ));
-    }
+    let response = timeout(timeout_duration, async {
+        client
+            .get(&url)
+            .header("X-CoinAPI-Key", &api_key)
+            .header("ACCEPT", "application/json")
+            .send()
+            .await
+    })
+    .await;
 
-    // Deserialize the response directly into a Vec<CoinApiRecord>
-    let records: Vec<CoinApiRecord> = response.json().await?;
+    debug!("Received response from CoinAPI");
 
-    // Convert the deserialized records into the expected Vec<(NaiveDateTime, f64)>
-    let exchange_rates: Vec<(NaiveDateTime, f64)> = records
-        .into_iter()
-        .filter_map(|record| {
-            // Convert `time_period_start` to `NaiveDateTime`
-            let datetime =
-                NaiveDateTime::parse_from_str(&record.time_period_start, "%Y-%m-%dT%H:%M:%S%.fZ")
+    match response {
+        Ok(Ok(response)) => {
+            // Debug
+            debug!("Received response from CoinAPI");
+
+            // Check if the response is successful
+            if response.status() != StatusCode::OK {
+                let status = response.status();
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
+                error!(
+                    "Request failed with status: {} and body: {}",
+                    status, error_text
+                );
+                return Err(anyhow::anyhow!(
+                    "CoinAPI request failed with status {}",
+                    status
+                ));
+            }
+
+            // Deserialize the response directly into a Vec<CoinApiRecord>
+            let records: Vec<CoinApiRecord> = response.json().await?;
+            debug!("Parsed CoinAPI response successfully");
+
+            // Convert the deserialized records into the expected Vec<(NaiveDateTime, f64)>
+            let exchange_rates: Vec<(NaiveDateTime, f64)> = records
+                .into_iter()
+                .filter_map(|record| {
+                    // Convert `time_period_start` to `NaiveDateTime`
+                    let datetime = NaiveDateTime::parse_from_str(
+                        &record.time_period_start,
+                        "%Y-%m-%dT%H:%M:%S%.fZ",
+                    )
                     .ok()?;
 
-            // Calculate the average of open, high, low, and close prices
-            let average_price =
-                (record.price_open + record.price_high + record.price_low + record.price_close)
-                    / 4.0;
+                    // Calculate the average of open, high, low, and close prices
+                    let average_price = (record.price_open
+                        + record.price_high
+                        + record.price_low
+                        + record.price_close)
+                        / 4.0;
 
-            Some((datetime, average_price))
-        })
-        .collect();
+                    Some((datetime, average_price))
+                })
+                .collect();
 
-    Ok(exchange_rates)
+            Ok(exchange_rates)
+        }
+        Ok(Err(e)) => {
+            error!("Error sending request to CoinAPI: {}", e);
+            Err(anyhow::anyhow!("Error sending request to CoinAPI: {}", e))
+        }
+        Err(_) => {
+            error!("Timeout occurred while trying to fetch data from CoinAPI");
+            Err(anyhow::anyhow!(
+                "Timeout occurred while trying to fetch data from CoinAPI"
+            ))
+        }
+    }
 }

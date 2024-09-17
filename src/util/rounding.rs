@@ -1,6 +1,7 @@
 use chrono::{NaiveDateTime, Timelike};
 
 /// Rounds the timestamp to the nearest period (minute, hour, etc.)
+//  #[allow(dead_code)]
 pub fn round_to_period(timestamp: NaiveDateTime, period: &str) -> NaiveDateTime {
     match period {
         "second" => timestamp

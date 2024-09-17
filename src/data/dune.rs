@@ -1,11 +1,11 @@
 use anyhow::{anyhow, Result};
 use dotenv::dotenv;
+use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Deserializer};
 use serde_json;
 use std::env;
 
-// Struct definitions
 #[derive(Deserialize, Debug)]
 struct DuneAnalyticsResponse {
     result: DuneResult,
@@ -16,7 +16,6 @@ struct DuneResult {
     rows: Vec<CryptoPriceDataRaw>,
 }
 
-// Struct for raw price data that allows for custom deserialization
 #[derive(Deserialize, Debug)]
 struct CryptoPriceDataRaw {
     tspan: String,
@@ -32,7 +31,7 @@ enum Price {
     Float(f64),
 }
 
-// Data Cleansing to remove 'crazy' returns
+// Data Cleansing to remove 'crazy' returns from feed
 // Custom deserialization to handle "Infinity" and other non-numeric values
 fn deserialize_price<'de, D>(deserializer: D) -> Result<f64, D::Error>
 where
@@ -72,11 +71,15 @@ pub async fn fetch_dune_data(
 
     let api_key = env::var("DUNE_API_KEY").expect("DUNE_API_KEY must be set in .env file");
 
+    debug!("Api key: {}", api_key);
+
     // Dune Analytics API URL with the provided query ID
     let url = format!(
         "https://api.dune.com/api/v1/query/{}/results?limit={}",
         query_id, no_of_periods
     );
+
+    debug!("Dune Url: {}", url);
 
     // Make the API call
     let client = Client::new();
@@ -93,6 +96,8 @@ pub async fn fetch_dune_data(
             // Deserialize response into expected struct
             let response_data: DuneAnalyticsResponse = serde_json::from_str(&response_text)
                 .map_err(|e| anyhow!("Failed to deserialize response: {}", e))?;
+
+            debug!("Response: {:?}", response_data);
 
             // Data Cleansing
             // Extract prices and filter out non-finite values (Infinity, NaN, etc.)
@@ -125,8 +130,7 @@ pub async fn fetch_dune_data(
                 })
                 .collect();
 
-            // Debug
-            // println!("Filtered prices: {:?}", filtered_prices);
+            debug!("Filtered prices: {:?}", filtered_prices);
 
             Ok(filtered_prices)
         }

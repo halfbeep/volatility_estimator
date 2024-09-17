@@ -53,9 +53,6 @@ pub async fn get_kraken_data(
         .json::<KrakenApiResponse>()
         .await?;
 
-    // Debug
-    // println!("Responses: {:?}", response);
-
     // Extract OHLC data
     let ohlc_data = response
         .result
@@ -106,7 +103,7 @@ pub async fn get_kraken_data(
                 _ => return None,
             };
 
-            // Calculate the average price
+            // Calculate the average price (could use any of ohl or c)
             let average_price = (open_price + high_price + low_price + close_price) / 4.0;
 
             Some((datetime, average_price))

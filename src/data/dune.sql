@@ -39,7 +39,7 @@ WITH eth_prices AS (
     -- USDC is token0 and WETH is token1
     token_sold_address = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eb48 -- USDC contract address
     AND token_bought_address = 0xC02aaa39b223FE8D0A0e5C4F27eAD9083C756Cc2 -- WETH contract address
-    AND block_time > NOW() - interval '13' hour
+    AND block_time > NOW() - interval '741' minute
 )
 SELECT
   date_trunc('minute', timestamp) AS tspan,
