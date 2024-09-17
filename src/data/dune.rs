@@ -32,13 +32,13 @@ enum Price {
     Float(f64),
 }
 
-// Data Cleansing to remove 'crazy' returns ! important
+// Data Cleansing to remove 'crazy' returns
 // Custom deserialization to handle "Infinity" and other non-numeric values
 fn deserialize_price<'de, D>(deserializer: D) -> Result<f64, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let price = Price::deserialize(deserializer)?;
+    let price = Price::deserialize(deserializer)?; // Use built-in deserialization
     match price {
         Price::String(s) => match s.as_str() {
             "Infinity" | "-Infinity" | "NaN" => Ok(f64::INFINITY), // Treat as infinity
@@ -55,7 +55,7 @@ pub async fn fetch_dune_data(
 ) -> Result<Vec<(String, f64)>, anyhow::Error> {
     dotenv().ok(); // Load environment variables
 
-    // Load the appropriate query ID based on timespan
+    // Load the appropriate query ID based on the timespan
     let query_id = match timespan {
         "second" => {
             env::var("DUNE_QUERY_ID_SEC").expect("DUNE_QUERY_ID_SEC must be set in .env file")
@@ -72,7 +72,7 @@ pub async fn fetch_dune_data(
 
     let api_key = env::var("DUNE_API_KEY").expect("DUNE_API_KEY must be set in .env file");
 
-    // Set Dune Analytics API URL with query ID
+    // Dune Analytics API URL with the provided query ID
     let url = format!(
         "https://api.dune.com/api/v1/query/{}/results?limit={}",
         query_id, no_of_periods
@@ -86,9 +86,6 @@ pub async fn fetch_dune_data(
         .send()
         .await;
 
-    // Debug
-    // println!("Responses: {:?}", raw_response);
-
     // Check if the request succeeded
     match raw_response {
         Ok(response) => {
@@ -97,6 +94,7 @@ pub async fn fetch_dune_data(
             let response_data: DuneAnalyticsResponse = serde_json::from_str(&response_text)
                 .map_err(|e| anyhow!("Failed to deserialize response: {}", e))?;
 
+            // Data Cleansing
             // Extract prices and filter out non-finite values (Infinity, NaN, etc.)
             let prices: Vec<f64> = response_data
                 .result
@@ -110,10 +108,10 @@ pub async fn fetch_dune_data(
             if prices.is_empty() {
                 return Err(anyhow!("No valid prices found"));
             }
-
             let avg: f64 = prices.iter().sum::<f64>() / prices.len() as f64;
-            // More Data Cleansing in preparation for vol calcs
-            // filter prices that are greater than 10 times the average
+
+            // More Data Cleansing and preparation for vol calcs
+            // Filter prices that are greater than 10 times the average
             let filtered_prices: Vec<(String, f64)> = response_data
                 .result
                 .rows
@@ -126,6 +124,9 @@ pub async fn fetch_dune_data(
                     }
                 })
                 .collect();
+
+            // Debug
+            // println!("Filtered prices: {:?}", filtered_prices);
 
             Ok(filtered_prices)
         }

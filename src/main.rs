@@ -95,11 +95,11 @@ async fn main() -> Result<()> {
     match get_polygon_data(&time_period, no_of_periods.try_into().unwrap()).await {
         Ok(polygon_data) => {
             for (timestamp, vw) in polygon_data {
-                let rounded_timestamp = round_to_period(timestamp, &time_period);
+                round_to_period(timestamp, &time_period);
                 results_map
-                    .entry(rounded_timestamp)
+                    .entry(timestamp)
                     .and_modify(|e| e.0 = Some(vw))
-                    .or_insert((Some(vw), None, None, None, None)); // Set Polygon, others remain None
+                    .or_insert((None, Some(vw), None, None, None)); // Set Polygon, others remain None
             }
         }
         Err(e) => {
@@ -110,19 +110,30 @@ async fn main() -> Result<()> {
     // Attempt to fetch and insert Dune data
     println!("Fetching Dune data...");
     match fetch_dune_data(&time_period, no_of_periods.try_into().unwrap()).await {
-        Ok(on_chain_prices) => {
-            for (day_str, price) in on_chain_prices {
-                let day_str = day_str.trim();
-                if let Ok(date_time) =
-                    NaiveDateTime::parse_from_str(&day_str, "%Y-%m-%d %H:%M:%S%.f %Z")
-                {
-                    let rounded_timestamp = round_to_period(date_time, &time_period);
+        Ok(dune_prices) => {
+            for (day_str, aprice) in dune_prices {
+                // Attempt to parse using the expected format
+                let timestamp = NaiveDateTime::parse_from_str(&day_str, "%Y-%m-%d %H:%M:%S%.f %Z")
+                    .or_else(|e| {
+                        println!("Failed to parse date: {}. Error: {}", day_str, e);
+                        Err(e)
+                    });
+
+                if let Ok(timestamp) = timestamp {
+                    let rounded_time = round_to_period(timestamp, &time_period);
                     results_map
-                        .entry(rounded_timestamp)
-                        .and_modify(|e| e.1 = Some(price))
-                        .or_insert((None, Some(price), None, None, None)); // Set Dune price, others remain None
+                        .entry(rounded_time)
+                        .and_modify(|e| {
+                            // Only modify if Dune price is None
+                            if e.0.is_none() {
+                                e.0 = Some(aprice); // Set Dune price
+                            }
+                        })
+                        .or_insert_with(|| {
+                            (Some(aprice), None, None, None, None) // Set Dune price, others remain None
+                        });
                 } else {
-                    println!("Failed to parse date: {}", day_str);
+                    println!("Skipping insertion due to invalid timestamp.");
                 }
             }
         }
@@ -180,7 +191,7 @@ async fn main() -> Result<()> {
         }
 
         println!(
-            "Estimated Volatility over {}  {}  bars, avg & volume weighted = {:.6}",
+            "Estimated Volatility over last {}  {}  bars, avg & volume weighted = {:.6}",
             no_of_periods, time_period, volatility
         );
     } else {
