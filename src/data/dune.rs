@@ -114,15 +114,16 @@ pub async fn fetch_dune_data(
                 return Err(anyhow!("No valid prices found"));
             }
             let avg: f64 = prices.iter().sum::<f64>() / prices.len() as f64;
+            debug!("Average price {}", avg);
 
             // More Data Cleansing and preparation for vol calcs
-            // Filter prices that are greater than 10 times the average
+            // Filter ETH prices that are greater than $8000
             let filtered_prices: Vec<(String, f64)> = response_data
                 .result
                 .rows
                 .into_iter()
                 .filter_map(|row| {
-                    if row.average_eth_price.is_finite() && row.average_eth_price <= 10.0 * avg {
+                    if row.average_eth_price <= 8000.0 {
                         Some((row.tspan, row.average_eth_price))
                     } else {
                         None

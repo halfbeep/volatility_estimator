@@ -1,4 +1,5 @@
 use chrono::NaiveDateTime;
+use log::debug;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -136,6 +137,10 @@ pub fn calculate_volatility(
         let current_vol = vol_values[i].1;
         let previous_vol = vol_values[i - 1].1;
         let return_value = (current_vol - previous_vol) / previous_vol;
+        debug!(
+            "Price {} Previous {} Return {}",
+            current_vol, previous_vol, return_value
+        );
         returns.push(return_value);
     }
 

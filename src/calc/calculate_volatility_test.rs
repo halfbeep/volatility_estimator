@@ -138,3 +138,60 @@ fn test_interpolation_in_calculate_volatility() {
         None => panic!("Volatility calculation returned None"),
     }
 }
+
+#[test]
+fn test_calculate_volatility_with_given_returns() {
+    // The provided array of returns
+    let returns = [
+        -0.009103197429499166,
+        0.00936993735757305,
+        0.029206122417959775,
+        0.02454310503968983,
+        -0.003897404481121453,
+        -0.0016206733055013926,
+        -0.059715779339231896,
+        -0.032363131598655955,
+        0.03308966289047178,
+        -0.02687462172174898,
+        -0.0005457007004976708,
+        -0.020294105989139413,
+        0.04498320993648113,
+        -0.03311026236166164,
+        -0.02686631709822145,
+        -0.006869607080694805,
+        -0.046841730530681004,
+        -0.004572433598902075,
+        0.0033733624454148074,
+        0.017310600702869182,
+        0.0146524064171123,
+        -0.007494466111520875,
+        0.0017523550589957602,
+        0.021652771298927145,
+        0.006357238130444961,
+        -0.01630196872976134,
+        -0.03313538724334515,
+        0.014149029131476348,
+        0.009171659928307856,
+    ];
+
+    // Calculate the mean of the returns
+    let n = returns.len();
+    let mean = returns.iter().sum::<f64>() / n as f64;
+
+    // Calculate the variance of the returns
+    let variance = returns.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
+
+    // Calculate the standard deviation (volatility)
+    let calculated_volatility = variance.sqrt();
+
+    // Expected volatility
+    let expected_volatility = 0.024631;
+
+    // Assert the calculated volatility is approximately equal to the expected volatility
+    assert!(
+        (calculated_volatility - expected_volatility).abs() < 1e-6,
+        "Calculated volatility: {:.6}, Expected volatility: {:.6}",
+        calculated_volatility,
+        expected_volatility
+    );
+}
