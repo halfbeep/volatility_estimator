@@ -54,7 +54,7 @@ pub fn calculate_volatility(
         *vol = if values.is_empty() {
             None
         } else {
-            Some(values.into_iter().fold(f64::MIN, f64::max))
+            Some(values.into_iter().fold(f64::MAX, f64::min))
         };
     }
 

@@ -270,7 +270,7 @@ async fn main() -> Result<()> {
         }
 
         println!(
-            "Estimated Volatility over last {} {} bars, ohlc avg & volume weighted = {:.6}",
+            "Estimated Volatility over last {} {}s, ohlc avg & volume weighted = {:.6}",
             no_of_periods, time_period_ref, volatility
         );
     } else {
