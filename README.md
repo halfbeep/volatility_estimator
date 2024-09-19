@@ -1,6 +1,6 @@
 ## Volatility Estimator
 
-Uses on-chain & off-chain prices on a continuous basis (24/7) from kraken, dune, bitFinex and polygon. Highest of average or volume weighted prices used with linear interpolation and projection of *N* returns
+Uses on-chain & off-chain prices on a continuous basis (24/7) from kraken, dune, bitFinex and polygon. Lowest of average or volume weighted prices used with linear interpolation and projection of *N* returns
 
 ## $\sigma$ = $\sqrt{\frac{1}{N-1} \sum_{i=1}^N (x_i - \overline{x})^2}$
 
